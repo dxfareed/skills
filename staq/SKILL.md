@@ -343,7 +343,7 @@ Every one of these is a refusal, not a skip. Say it, unless the table in
 | Check | Refuse when | Why this row exists |
 |---|---|---|
 | Destination | `to` is not the reserve in `/.staq/reserve.json`, which you derived from the pinned hub | An address supplied by the API and compared against itself always agrees |
-| Deployed | `/.staq/reserve.json` has no recorded `owner`, or it is not this wallet | Recorded at setup, after reading the chain. A clone's owner is fixed into its code, so it does not need reading again |
+| Deployed | the recorded `owner` in `/.staq/reserve.json` is not this wallet | Recorded at setup, after reading the chain. A clone's owner is fixed into its code, so it does not need reading again. If none is recorded, as for a reserve set up before this field existed, run `eth_getCode` and `owner()` once now and record them; no code means setup first, and no save |
 | Chain | your record is for another chain | Everything else is meaningless on the wrong chain |
 | Rule exists | you hold no signed rule for this wallet | The rule, not the API, is what the user agreed to |
 | Rule enabled | the rule you hold is paused | A paused rule must not be revived by a response |
