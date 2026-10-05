@@ -226,6 +226,17 @@
         "Agent deletes /.memory/user_staq.md",
         "Agent does not claim or move any savings"
       ]
+    },
+    {
+      "id": 21,
+      "eval_name": "scheduled-catch-up",
+      "prompt": "run the staq catch-up for this wallet. (Context: /pending returns one entry, a buy of ETH with 1 USDC that has no save record; the rule is fixed $0.50 on buy and sell, version 3.)",
+      "assertions": [
+        "Agent reads since from /.staq/catchup.json and calls GET /v1/wallets/:addr/pending",
+        "Agent classifies the trade from Blockscout's token transfers (WETH token_burning, no token received) as a buy, not from STAQ's label",
+        "Agent claims the save with a signed STAQ save v1 call and transfers 0.5 USDC to the derived reserve",
+        "Agent advances since and replies in one line"
+      ]
     }
   ]
 }

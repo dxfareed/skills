@@ -43,8 +43,9 @@ When a user asks you to save and has no rule yet:
 3. **Any clear yes is the explicit yes**: "yes", "ok", "sure", "go", "do it".
    Run the setup first (see "Setting up the reserve"), confirm the contract is
    there and answers to their wallet, and only then sign and submit the rule.
-   Then save the standing instruction in "Making it automatic" below, and
-   confirm in one line: "Done. From now on I'll save 10% of your trades."
+   Then save the standing instruction and create the catch-up automation, both
+   in "Making it automatic" below, and confirm in one line: "Done. From now on
+   I'll save 10% of your trades."
 4. **If they gave a number, use it.** "Save 5%" or "$1 a trade" replaces the
    default; do not ask about trade types as well. The default types are `buy`
    and `sell`: a swap is one or the other, and a send cannot save automatically
@@ -320,6 +321,51 @@ Keep the terms in it in step with the signed rule: rewrite it on every rule
 change, and **delete it when the user pauses STAQ**, so a paused rule is not
 still being acted on from memory. It is a reminder, never the authority: the
 signed rule in `/.staq/rule.json` and the checks below still decide every save.
+
+**The memory note is not enough on its own.** In testing, Bankr's swap tool
+closed the turn with its own fixed reply, and the save after it was skipped
+more often than not. So setup also creates a scheduled catch-up, an Agent
+Command automation, which needs Bankr Club:
+
+> every 30 minutes, run the staq catch-up for this wallet
+
+Then write `/.staq/catchup.json` with `since` set to the current unix time.
+Every 30 minutes stays inside Bankr's limit of 100 runs a day, and its 1,000-run
+cap lasts about three weeks: whenever the user talks to you about STAQ, check
+the automation still exists ("show my automations") and recreate it if not.
+Delete it when the user pauses STAQ. Without Bankr Club, skip the automation and
+tell the user saves will happen when the post-trade step runs, which is not
+every time.
+
+### Catching up
+
+When the catch-up runs, it saves every recent trade the post-trade step missed:
+
+```
+1. Read `since` from /.staq/catchup.json. Note the time now.
+2. GET https://api.agentstaq.xyz/v1/wallets/<wallet>/pending?since=<since>
+     503 -> stop; the next run picks these up
+3. For each entry, oldest first, run "After every successful trade" from
+   step 2, using the entry's sourceTxHash as the trade
+4. Write `since` = the time from step 1, minus 600 seconds
+5. Reply in one line: "STAQ: saved $X from N trades", or
+   "STAQ: nothing to save". Nothing else
+```
+
+The list only holds trades since the rule in force was signed, never sends,
+and never one that already has a save claim. Running a trade through the save
+call again is harmless: its claim lets exactly one run transfer, which is also
+why step 4 can overlap the last window by ten minutes without paying twice.
+
+**You did not execute these trades in this run**, so classify each one from
+Blockscout's record of it, not from STAQ's label:
+`GET https://base.blockscout.com/api/v2/transactions/<sourceTxHash>/token-transfers`.
+If the wallet received the pinned USDC or USDT, it is a `sell`. If it received
+any other token, it is a `buy`. If it received no token, it is a `buy` only when
+the list has a WETH entry of type `token_burning`, which is the router
+unwrapping the ETH it paid the wallet; otherwise save nothing. For a
+percent rule, the USDC leg in that same list is your valuation; with no USDC
+leg, save nothing, quietly.
 
 ---
 
