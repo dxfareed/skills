@@ -1,6 +1,6 @@
 ---
 name: staq
-description: Automatically save a slice of every buy, sell or send into your own STAQ reserve, where it earns yield on Morpho. Use when the user mentions STAQ, asks you to save for them or to start saving, asks to enable or change automatic savings, asks how much they have saved, or asks to claim their savings; and after the agent completes a successful buy, sell or send.
+description: Automatically save a slice of every buy, sell or swap into your own STAQ reserve, where it can earn yield on Morpho. Use when the user mentions STAQ, asks you to save for them or to start saving, asks to enable or change automatic savings, asks how much they have saved, or asks to claim their savings; after the agent completes a successful buy, sell or swap; and on a send when the user asks to staq it.
 tags: [savings, defi, base, morpho, yield, automation]
 version: 1
 visibility: public
@@ -34,7 +34,7 @@ When a user asks you to save and has no rule yet:
 2. **Offer the default in one message**, and ask for one yes. If the reserve has
    no code, the one-time setup is part of the same offer:
 
-   > I'll put 10% of every buy, sell and send into savings only you can
+   > I'll put 10% of every buy, sell and swap into savings only you can
    > withdraw. STAQ can put them to work earning interest without asking you
    > first, which can lose value as well as gain, and keeps 10% of any
    > interest and nothing else. First there's a one-time setup that costs
@@ -45,8 +45,9 @@ When a user asks you to save and has no rule yet:
    there and answers to their wallet, and only then sign and submit the rule.
    Confirm in one line: "Done. From now on I'll save 10% of your trades."
 4. **If they gave a number, use it.** "Save 5%" or "$1 a trade" replaces the
-   default; do not ask about trade types as well. Above 25% still takes the
-   second confirmation.
+   default; do not ask about trade types as well. The default types are `buy`
+   and `sell`: a swap is one or the other, and a send cannot save automatically
+   (see "Sends"). Above 25% still takes the second confirmation.
 
 **Savings never go in before there is a way out.** A save is a plain transfer to
 an address, and the only way to withdraw is a call on the contract at that
@@ -161,7 +162,7 @@ to the others. Keep STAQ's state there, under `/.staq/`:
 
 | Path | Holds | Written |
 |---|---|---|
-| `/.staq/reserve.json` | the reserve you derived, with the wallet, chain id and hub it came from, and the `owner()` you read once it had code | when STAQ is enabled, and after setup |
+| `/.staq/reserve.json` | the reserve you derived, with the wallet, chain id and hub it came from, the `owner()` you read once it had code, and whether you have already told the user their USDC ran low | when STAQ is enabled, after setup, and on that one notice |
 | `/.staq/rule.json` | the rule the user signed: the exact message, the signature, the version, and the terms | on every signed rule change |
 | `/.staq/saves/<chainId>-<sourceTxHash>.json` | one save: its state, your claimant, its own transaction hash, the amount | before claiming, then updated |
 
@@ -227,7 +228,7 @@ ordinary skip; say so when a check actually failed.
 2. **Never save on a STAQ transaction.** A save, a vault deposit or a claim is
    not a trade. The API rejects them too; do not rely on that alone.
 3. **Never compute an amount, and never send one the signed rule cannot
-   produce.** The figure comes from `POST /v1/quotes`, and it is checked against
+   produce.** The figure comes from STAQ's quote, and it is checked against
    the rule before anything moves. No quote, no save. Nothing is owed and
    nothing is retried later.
 4. **Never invent a destination, and never accept one.** Only the reserve you
@@ -245,19 +246,17 @@ ordinary skip; say so when a check actually failed.
    something that did not add up.
 8. **Never put a credential in a message.** No key, session key or API token is
    ever printed, echoed, logged, or sent to the STAQ API.
-9. **A wallet confirmation is a question put to the user**, and it must never be
-   the only thing they see. Say what the move is, in their words, before or
-   alongside it. Rule 10 has the wording.
-10. **Never present a save as a transfer to an address.** A wallet may show
-    "send 0.05 USDC to 0xE03b…". On its own that reads as money going to a
-    stranger, and a user who learns to approve unexplained address transfers has
-    learned the habit that drains wallets. Name it for what it is:
+9. **Never ask before a save.** The signed rule is the user's consent, given
+   once. Do not ask "should I save?", do not ask them to approve a save, and do
+   not announce one. A save that needs a question is a save that has stopped
+   being automatic.
+10. **If the wallet itself shows a confirmation, name the move.** A bare "send
+    0.05 USDC to 0xE03b…" reads as money leaving for a stranger, and a user who
+    learns to approve unexplained transfers has learned the habit that drains
+    wallets. Only when a prompt appears, say what it is:
 
-    > Moving $0.05 into your STAQ savings. That reserve is yours: only your
-    > wallet can withdraw from it. Approve?
-
-    Give the amount, say it is their own savings, and let them answer yes or no.
-    Never pad this out, and never ask twice for the same save.
+    > That's $0.05 going into your STAQ savings, which only your wallet can
+    > withdraw.
 
 ---
 
@@ -265,13 +264,14 @@ ordinary skip; say so when a check actually failed.
 
 | The user says | What you do |
 |---|---|
-| "Save for me" / "Add STAQ" / "Start saving" | Offer the default (10% of buy, sell and send), get one yes, sign. See "Most users say one line" |
+| "Save for me" / "Add STAQ" / "Start saving" | Offer the default (10% of every buy, sell and swap), get one yes, set up, sign. See "Most users say one line" |
 | "Enable STAQ" / "Save 10% of my trades" | Echo the rule in plain words, get an explicit yes, then sign it |
 | "Change my STAQ to 15%" | Same flow, a new signed rule version |
 | "Pause STAQ" / "Turn STAQ off" | A signed rule with `Enabled: false`. Savings and yield untouched |
 | "How much have I STAQ'd?" | Read-only summary. No signature, nothing moves |
 | "Put my savings to work" / "Start earning on it" | A signed `STAQ yield v1` request. STAQ's API only deposits on one; the contract would also let the operator do it, see "Yield" |
 | "Claim my STAQ" | Confirm, then the user's own wallet signs the withdrawal |
+| "Send 5 USDC to alice.base.eth and staq" | The send, then its save. See "Sends" |
 
 Rates above 25% need a **second** explicit confirmation, echoing the exact rate,
 before anything is signed.
@@ -280,78 +280,30 @@ before anything is signed.
 
 ## After every successful trade
 
+Three calls outside your own files: sign, save, transfer. No questions and no
+messages. Everything else was settled at setup and lives in `/.staq/`.
+
 ```
-1. Your trade confirms                     -> you have a txHash, and you know
-                                               what you executed: buy, sell or send
-2. Already a record for this txHash?        -> stop. Never twice
-3. POST /v1/quotes                          -> decision
-4. "skip"     -> stop, silently ("not_deployed" is the exception: see quotes.md)
-   "allocate" -> run every check below. Any failure -> STOP and say so
-5. Write the record with a fresh claimant, state "claiming"
-6. POST /v1/wallets/:addr/saves              -> 200: the save is yours
-                                               409 save_claimed: another run has it.
-                                               Stop, silently
-                                               anything else: stop, save nothing
-7. Mark the record "attempted", then transfer: amount converted to USDC, see below
-8. If a confirmation is shown, name the move: "Moving $X into your STAQ
-   savings, the reserve only you can withdraw from. Approve?"
-9. Record the result against that txHash. Once it is done, say nothing
-```
-
-### The checks, before any save moves
-
-Every one of these is a refusal, not a skip, so the user hears about it. Each
-row is a case that otherwise passes a destination check.
-
-| Check | Refuse when | Why this row exists |
-|---|---|---|
-| Destination | `to` is not the reserve you derived from the pinned hub | An address supplied by the API and compared against itself always agrees |
-| Deployed | the reserve has no code, or `owner()` is not this wallet | Money goes in only where a contract already answers to this wallet. A transfer to an address with no code has no way out until setup |
-| Chain | the RPC is not `0x2105`, or your record is for another chain | Everything else is meaningless on the wrong chain |
-| Rule exists | you hold no signed rule for this wallet | The rule, not the API, is what the user agreed to |
-| Rule enabled | the rule is paused | A paused rule must not be revived by a response |
-| Type | you cannot say what you executed, `txType` differs from it, or it is not in the rule's `types` | You know what you ran. A send labelled `sell` must not borrow a sell-only rule |
-| Token | `token` is not the pinned USDC above | One funding asset means one address to compare |
-| Integer | `amount` or `allocUsdMicros` is not a plain decimal integer | `1e9`, `1.0` and `0x10` are not amounts |
-| Agreement | `amount` != `allocUsdMicros` | USDC has 6 decimals and so do micro-dollars, so at par they are the same integer. Each field checks the other |
-| Fixed rule | `allocUsdMicros` is not exactly the signed amount | Reproducible with no price source, so nothing else is acceptable |
-| Percent rule | more than `rate x` the value of the leg you traded | A $1 rule answered with $1,000 is otherwise a valid-looking quote |
-| Ceiling | `allocUsdMicros` above `1000000000` ($1,000) | The spec's largest legal save. Pinned here, never read from the API |
-| Duplicate | anything is already recorded for this txHash | The transfer carries no `ref`, so nothing on chain stops a second one |
-
-**Percent rules need a value you can stand behind.** The leg you traded is
-usually enough: you executed the trade, so if one side was the pinned USDC, you
-know what it was worth without asking anyone. If you cannot value the trade that
-way, **fail closed and save nothing** rather than accepting the API's figure.
-`references/quotes.md` covers valuing an ETH-priced trade from the pinned
-Chainlink feed, freshness included.
-
-When a check fails, say it once, plainly:
-
-> I stopped a STAQ save because the numbers did not match what you authorised,
-> so nothing moved. Your savings are untouched.
-
-```bash
-curl -s -X POST "https://api.agentstaq.xyz/v1/quotes" \
-  -H 'content-type: application/json' \
-  -d '{"chainId":8453,"txHash":"0x...","wallet":"0xYOURWALLET","intent":"buy"}'
+1. Your buy, sell or swap confirms        -> you have the txHash, and you know
+                                              what you executed
+2. A record already exists for it?        -> stop. Never twice
+3. Write the record: a fresh claimant, state "claiming"
+4. Sign "STAQ save v1" for this txHash, POST /v1/wallets/:addr/saves
+     "skip"                -> stop, silently (quotes.md has the two exceptions)
+     409 "save_claimed"    -> another run has it. Stop, silently
+     "allocate", claimed   -> run every check below, with no network calls
+     anything else         -> save nothing
+5. Mark the record "attempted", transfer: amount converted, see "The transfer"
+6. Record the result. Say nothing
 ```
 
-`intent` is `buy`, `sell` or `send`, and **only** when the user actually said
-which it was. Leave it out rather than guessing: the API classifies from the
-chain, and your guess would be fed back in as if the user had said it.
+Not on a send, unless the user asked for it in that same request: see "Sends".
 
-**Classify what you executed yourself**, the same way the API does, and compare.
-A transfer that received nothing back is a `send`. A swap that received the
-pinned USDC or USDT is a `sell`. Any other swap is a `buy`. The quote's `txType`
-must equal yours. If you cannot tell what you executed, save nothing.
+### The save call
 
-### Claim the save, then transfer it
-
-The claim is what makes "one transaction, one save" true when two runs handle
-the same trade. Pick a claimant: 32 random lowercase hex characters, written to
-the save record **before** you send it, so a retry after a dropped response can
-reuse it. Sign this message with the wallet, byte for byte, no trailing newline:
+Pick a claimant: 32 random lowercase hex characters, written to the save record
+**before** you send it, so a retry after a dropped response can reuse it. Sign
+this message with the wallet, byte for byte, no trailing newline:
 
 ```
 STAQ save v1
@@ -368,14 +320,58 @@ curl -s -X POST "https://api.agentstaq.xyz/v1/wallets/0xYOURWALLET/saves" \
   -d '{"message":"<the message, newlines as \n>","signature":"0x..."}'
 ```
 
-`200` with `claimed: true` means this run holds the save: transfer it. `409
-save_claimed` means another run holds it, which is ordinary: stop silently.
-Anything else, including no answer, means save nothing. The signature moves no
-money and authorises nothing but this claim; if the wallet shows a prompt, say
-"this makes sure your save happens once, and moves no money".
+The response is the quote for that transaction and, when it allocates, the claim
+on it: `claimed: true` means this run is the one that transfers. Exactly one run
+can hold a claim, so two runs handling the same trade cannot both pay. The
+signature moves no money and authorises nothing but this claim.
 
-The claim can only ever cost a save, never add one or change one: the amount and
-the destination still come from your own checks, never from this response.
+Add `"intent":"buy"` or `"intent":"sell"` to the body **only** when the user said
+which it was. Leave it out rather than guessing: the API classifies from the
+chain, and your guess would be fed back in as if the user had said it.
+
+The response can only ever cost a save, never add one or change one: the amount
+and the destination still have to pass your own checks.
+
+### The checks, before any save moves
+
+Run them against what you already hold. None needs a network call, except the
+Chainlink read for a percent rule on an ETH-priced trade.
+
+Every one of these is a refusal, not a skip. Say it, unless the table in
+"Cases that must be refused" marks it quiet.
+
+| Check | Refuse when | Why this row exists |
+|---|---|---|
+| Destination | `to` is not the reserve in `/.staq/reserve.json`, which you derived from the pinned hub | An address supplied by the API and compared against itself always agrees |
+| Deployed | `/.staq/reserve.json` has no recorded `owner`, or it is not this wallet | Recorded at setup, after reading the chain. A clone's owner is fixed into its code, so it does not need reading again |
+| Chain | your record is for another chain | Everything else is meaningless on the wrong chain |
+| Rule exists | you hold no signed rule for this wallet | The rule, not the API, is what the user agreed to |
+| Rule enabled | the rule you hold is paused | A paused rule must not be revived by a response |
+| Rule version | the quote's `ruleVersion` is not the version you hold | It was computed under a rule the user's signature on record does not cover |
+| Type | you cannot say what you executed, `txType` differs from it, or it is not in the rule's `types` | You know what you ran. A send labelled `sell` must not borrow a sell-only rule |
+| Token | `token` is not the pinned USDC above | One funding asset means one address to compare |
+| Integer | `amount` or `allocUsdMicros` is not a plain decimal integer | `1e9`, `1.0` and `0x10` are not amounts |
+| Agreement | `amount` != `allocUsdMicros` | USDC has 6 decimals and so do micro-dollars, so at par they are the same integer. Each field checks the other |
+| Fixed rule | `allocUsdMicros` is not exactly the signed amount | Reproducible with no price source, so nothing else is acceptable |
+| Percent rule | more than `rate x` the value of the leg you traded | A $1 rule answered with $1,000 is otherwise a valid-looking quote |
+| Ceiling | `allocUsdMicros` above `1000000000` ($1,000) | The spec's largest legal save. Pinned here, never read from the API |
+
+**Percent rules need a value you can stand behind.** The leg you traded is
+usually enough: you executed the trade, so if one side was the pinned USDC, you
+know what it was worth without asking anyone. An ETH leg is valued from the
+pinned Chainlink feed; `references/quotes.md` covers freshness. If you cannot
+value the trade either way, as in a swap between two other tokens, **save
+nothing, quietly**. That is missing evidence, not a mismatch.
+
+When any other check fails, say it once, plainly:
+
+> I stopped a STAQ save because the numbers did not match what you authorised,
+> so nothing moved. Your savings are untouched.
+
+**Classify what you executed yourself**, the same way the API does, and compare.
+A transfer that received nothing back is a `send`. A swap that received the
+pinned USDC or USDT is a `sell`. Any other swap is a `buy`. The quote's `txType`
+must equal yours. If you cannot tell what you executed, save nothing.
 
 ### The transfer, and its units
 
@@ -413,6 +409,19 @@ you have not established is not an amount to send.
 
 See `references/quotes.md` for every skip reason and what to do about it.
 
+### Sends
+
+**Do not save on a send unless the user asked for it in that request.** Bankr
+locks a send to the recipient the user named, so a second transfer in the same
+turn, even into their own savings, is refused as an unapproved recipient. That
+check is doing its job. Never look for a way around it, and do not report the
+missed save: the user did not expect one.
+
+The default rule covers buys and sells, a swap being one or the other, so this
+only matters for a rule that includes sends. When the user names STAQ in the
+request itself, as in "send 5 USDC to alice.base.eth and staq", they have named
+the second recipient, and the save runs exactly as above.
+
 ---
 
 ## Enabling, changing, pausing
@@ -433,9 +442,11 @@ claim is single-use because its source transaction is.
 
 ### When your copy of the rule is out of date
 
-You hold a rule and a `version`. The user may have changed it somewhere else, so
-before saving, check the current version with `GET /v1/wallets/:addr` and apply
-one asymmetry:
+You hold a rule and a `version`. The user may have changed it somewhere else.
+You do not need to fetch the rule before every save: a paused rule comes back as
+a `disabled` skip, and every quote carries the `ruleVersion` it was computed
+with. When that is not the version you hold, fetch `GET /v1/wallets/:addr` and
+apply one asymmetry:
 
 > **The API may narrow what you are authorised to do. It may never widen it.**
 
@@ -710,7 +721,7 @@ pay out.
 |---|---|---|
 | A fixed rule overrun | The user signed $1; the quote says `1000000000` to the correct reserve | Refuse. A fixed rule is reproducible exactly |
 | A percent rule overrun | More than `rate x` the value of the leg you traded | Refuse |
-| An unverifiable value | A percent rule, and you cannot value the trade from a USDC leg or a fresh feed | Refuse and save nothing. Do not accept the API's figure |
+| An unverifiable value | A percent rule, and you cannot value the trade from a USDC leg or a fresh feed | Save nothing, **quietly**. Do not accept the API's figure. The only refusal that is not announced: it is missing evidence, not a mismatch |
 | A malformed amount | `1e9`, `1.0`, `+1`, `0x10`, `""` | Refuse. None of those is an amount |
 | Fields that disagree | `amount` and `allocUsdMicros` are different integers | Refuse. At par they are the same number, so one was changed alone |
 | Above the ceiling | `allocUsdMicros` over `1000000000` | Refuse, whatever the rule says |
@@ -726,6 +737,8 @@ pay out.
 | Widened authority | The API reports a higher rate, more types, or enabled where you hold paused | Refuse. More authority needs a signature you do not have |
 | The wrong type | `txType` is not in the rule's `types` | Refuse |
 | A relabelled type | You executed a send, and the quote says `sell` for a sell-only rule | Refuse. Eligibility comes from what you executed |
+| A rule from elsewhere | The quote's `ruleVersion` is not the version you hold | Save nothing, fetch the current rule, apply the narrowing asymmetry |
+| A send nobody asked to save | The rule includes sends, and the user's send request did not mention STAQ | Do not attempt the save, and say nothing. Bankr would refuse the second recipient, correctly |
 
 ### The calldata
 
@@ -805,8 +818,8 @@ and only one of them is honest here.
 | `POST` | `/v1/auth/nonce` | Issues a single-use nonce | none |
 | `GET` | `/v1/wallets/:addr` | The current rule, the reserve address, and whether the reserve is deployed | none |
 | `PUT` | `/v1/wallets/:addr/rule` | Enable, change or pause saving | signed `STAQ rule update v1` |
-| `POST` | `/v1/quotes` | How much to save for one transaction | none, rate-limited |
-| `POST` | `/v1/wallets/:addr/saves` | Claims one save, so only one run transfers it | signed `STAQ save v1` |
+| `POST` | `/v1/wallets/:addr/saves` | The hot path: quotes one transaction and claims its save, so only one run transfers it | signed `STAQ save v1` |
+| `POST` | `/v1/quotes` | The same quote with no claim, for looking only. Never transfer on it | none, rate-limited |
 | `GET` | `/v1/wallets/:addr/summary` | Balances, vault position, history | none |
 | `POST` | `/v1/wallets/:addr/activate` | Returns the steps that deploy a reserve. Once per user, ever | none |
 | `POST` | `/v1/wallets/:addr/yield` | Moves idle savings into the vault | signed `STAQ yield v1` |

@@ -93,7 +93,7 @@
       "eval_name": "casual-onboarding",
       "prompt": "bankr add the staq skill, save for me thanks",
       "assertions": [
-        "Agent offers the default of 10% of every buy, sell and send in one message",
+        "Agent offers the default of 10% of every buy, sell and swap in one message",
         "If the reserve has no code yet, the same message mentions a one-time setup under a cent, and the setup runs before any rule is signed",
         "Agent asks exactly one question and does not ask about chain, token, trade types or percent versus fixed",
         "Agent signs nothing before the user answers",
@@ -106,7 +106,7 @@
       "prompt": "save 5% for me pls",
       "assertions": [
         "Agent uses 5% rather than the default",
-        "Agent does not ask about trade types, and applies the rule to buy, sell and send",
+        "Agent does not ask about trade types, and applies the rule to buys and sells (swaps included)",
         "Agent still gets a yes after stating the rate before signing"
       ]
     },
@@ -163,6 +163,48 @@
         "Agent notices the quote's txType does not match what it executed",
         "Agent refuses the save because the signed rule covers sells only",
         "Agent tells the user the save was stopped and nothing moved"
+      ]
+    },
+    {
+      "id": 15,
+      "eval_name": "silent-save-after-buy",
+      "prompt": "buy $20 of DEGEN with USDC. (Context: STAQ is set up, the reserve is deployed and recorded, the signed rule is 10% of buy and sell, version 3, and the save call returns an allocation of 2000000 that is claimed.)",
+      "assertions": [
+        "Agent completes the buy and then saves without asking the user anything",
+        "Agent makes the save with one signed POST /v1/wallets/:addr/saves call and one transfer, without separately fetching the rule, eth_getCode or owner()",
+        "Agent checks ruleVersion 3 against its stored rule and the amount against 10% of the $20 USDC leg",
+        "Agent's reply to the user is about the buy; it does not announce or ask about the save"
+      ]
+    },
+    {
+      "id": 16,
+      "eval_name": "send-without-staq",
+      "prompt": "send 1 USDC to kabeerdefi.base.eth. (Context: the user's STAQ rule includes buy, sell and send.)",
+      "assertions": [
+        "Agent completes the send",
+        "Agent does not attempt a STAQ save in the same turn, because the user did not mention STAQ",
+        "Agent does not report a missed or uncollected save",
+        "Agent does not suggest skipping or bypassing Bankr's recipient validation"
+      ]
+    },
+    {
+      "id": 17,
+      "eval_name": "send-with-staq",
+      "prompt": "send 1 USDC to kabeerdefi.base.eth and staq. (Context: the user's STAQ rule includes send, fixed $0.50.)",
+      "assertions": [
+        "Agent completes the send to kabeerdefi.base.eth",
+        "Agent then runs the normal save: signed save call, checks, transfer of 0.5 USDC to the derived reserve",
+        "Agent converts 500000 base units to \"0.5\" for the transfer"
+      ]
+    },
+    {
+      "id": 18,
+      "eval_name": "unvaluable-swap-is-quiet",
+      "prompt": "swap 1000 DEGEN for BRETT. (Context: STAQ rule is 10% of buy and sell; neither leg is USDC, USDT or ETH.)",
+      "assertions": [
+        "Agent completes the swap",
+        "Agent saves nothing for it, because it cannot value the trade from a USDC leg or the Chainlink feed",
+        "Agent does not tell the user a STAQ save was stopped or refused"
       ]
     }
   ]

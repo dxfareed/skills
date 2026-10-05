@@ -8,7 +8,7 @@ this rate and when".
 
 | Mode | Example | Behaviour |
 |---|---|---|
-| Percent | "STAQ 10% of every buy, sell and send" | `value x rate`, rounded down |
+| Percent | "STAQ 10% of every buy, sell and swap" | `value x rate`, rounded down |
 | Fixed | "STAQ $1 on every trade" | The same amount regardless of trade size |
 
 ## Bounds
@@ -22,7 +22,9 @@ Above **25%** (`2500` bps) you must take a second, explicit confirmation from
 the user, echoing the exact rate, before signing. A misheard "fifty" for
 "fifteen" costs them real money on every trade.
 
-`types` is a non-empty subset of `buy`, `sell`, `send`.
+`types` is a non-empty subset of `buy`, `sell`, `send`. The default is `buy,sell`:
+a swap is one or the other, and a send can only save when the user asks for it
+in the same request (see "Sends" in `SKILL.md`).
 
 A save below $0.01 is dust and is skipped rather than transferred.
 
@@ -38,7 +40,7 @@ Chain: 8453
 Enabled: true
 Mode: percent
 Rate: 1000 bps
-Types: buy,sell,send
+Types: buy,sell
 Nonce: <64 hex chars from /v1/auth/nonce>
 Issued: 2026-09-18T10:00:00.000Z
 ```

@@ -3,11 +3,18 @@
 One source transaction produces at most one save. Ask once, act on the answer,
 move on.
 
+After a trade, the quote comes from `POST /v1/wallets/:addr/saves`, which also
+claims the save; `SKILL.md` has the signed message. `POST /v1/quotes` returns the
+same decision with no claim, for looking only:
+
 ```bash
 curl -s -X POST "https://api.agentstaq.xyz/v1/quotes" \
   -H 'content-type: application/json' \
-  -d '{"chainId":8453,"txHash":"0xTHE_TRADE","wallet":"0xYOURWALLET","intent":"buy"}'
+  -d '{"chainId":8453,"txHash":"0xTHE_TRADE","wallet":"0xYOURWALLET"}'
 ```
+
+**Never transfer on a `/v1/quotes` answer.** It carries no claim, so two runs
+acting on it could both pay.
 
 ## An allocation
 
@@ -19,9 +26,14 @@ curl -s -X POST "https://api.agentstaq.xyz/v1/quotes" \
   "amount": "20000000",
   "to": "0xYOUR_RESERVE",
   "txType": "buy",
-  "allocUsdMicros": "20000000"
+  "allocUsdMicros": "20000000",
+  "ruleVersion": 3,
+  "claimed": true
 }
 ```
+
+`ruleVersion` is the rule the quote was computed with. It must equal the version
+in `/.staq/rule.json`; compare them as integers.
 
 `amount` is a decimal string in USDC **base units**, already converted. 20000000
 is $20, because USDC has six decimals. Check it as an integer. Never parse it
@@ -59,7 +71,8 @@ wallets, and this skill should not be the one teaching it.
 { "decision": "skip", "ref": "0x…", "reason": "insufficient_balance" }
 ```
 
-Every skip is silent. None of them is an error, and none is retried.
+Every skip is silent, with two exceptions marked below. None of them is an
+error, and none is retried.
 
 | Reason | Meaning | Say something? |
 |---|---|---|
@@ -67,7 +80,7 @@ Every skip is silent. None of them is an error, and none is retried.
 | `disabled` | The rule is paused | No |
 | `ineligible_type` | This type is not in their rule | No |
 | `dust` | The save works out below $0.01 | No |
-| `insufficient_balance` | No single supported asset covers it | **Yes**, they can act on this |
+| `insufficient_balance` | Not enough USDC for this save | **Once.** Then stay quiet until a save succeeds again |
 | `unpriceable` | The trade's value could not be established | No |
 | `tx_failed` | The source transaction reverted | No |
 | `tx_pending` | No receipt within the wait window | No |
@@ -76,8 +89,10 @@ Every skip is silent. None of them is an error, and none is retried.
 | `unsupported_chain` | Not Base | No |
 | `not_deployed` | The reserve has no contract yet, so nothing is saved into it | **Yes**, once: saving resumes after the one-time setup |
 
-For `insufficient_balance`, say something specific and useful: "your wallet
-doesn't have enough USDC for this save", not "something went wrong".
+For `insufficient_balance`, say something specific and useful, once: "your
+wallet is out of USDC, so STAQ will pause saving until you have some". Note in
+`/.staq/reserve.json` that you said it, and clear the note after the next save
+that succeeds. Repeating it on every trade turns a fact into nagging.
 
 The save itself is always USDC, so `insufficient_balance` means exactly one
 thing: not enough USDC to cover the whole save. There is no second asset to fall
