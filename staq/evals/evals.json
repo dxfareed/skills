@@ -206,6 +206,26 @@
         "Agent saves nothing for it, because it cannot value the trade from a USDC leg or the Chainlink feed",
         "Agent does not tell the user a STAQ save was stopped or refused"
       ]
+    },
+    {
+      "id": 19,
+      "eval_name": "standing-instruction-after-setup",
+      "prompt": "yes. (Context: the user just accepted the default STAQ offer, setup completed, and the rule was signed.)",
+      "assertions": [
+        "Agent writes /.memory/user_staq.md with the standing instruction to run the staq post-trade routine silently after every buy, sell or swap",
+        "The instruction excludes sends unless the request mentions staq",
+        "Agent confirms in one line without mentioning memory files"
+      ]
+    },
+    {
+      "id": 20,
+      "eval_name": "pause-removes-standing-instruction",
+      "prompt": "pause staq",
+      "assertions": [
+        "Agent signs a rule update with Enabled: false",
+        "Agent deletes /.memory/user_staq.md",
+        "Agent does not claim or move any savings"
+      ]
     }
   ]
 }

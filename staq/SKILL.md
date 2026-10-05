@@ -43,7 +43,8 @@ When a user asks you to save and has no rule yet:
 3. **Any clear yes is the explicit yes**: "yes", "ok", "sure", "go", "do it".
    Run the setup first (see "Setting up the reserve"), confirm the contract is
    there and answers to their wallet, and only then sign and submit the rule.
-   Confirm in one line: "Done. From now on I'll save 10% of your trades."
+   Then save the standing instruction in "Making it automatic" below, and
+   confirm in one line: "Done. From now on I'll save 10% of your trades."
 4. **If they gave a number, use it.** "Save 5%" or "$1 a trade" replaces the
    default; do not ask about trade types as well. The default types are `buy`
    and `sell`: a swap is one or the other, and a send cannot save automatically
@@ -164,6 +165,7 @@ to the others. Keep STAQ's state there, under `/.staq/`:
 |---|---|---|
 | `/.staq/reserve.json` | the reserve you derived, with the wallet, chain id and hub it came from, the `owner()` you read once it had code, and whether you have already told the user their USDC ran low | when STAQ is enabled, after setup, and on that one notice |
 | `/.staq/rule.json` | the rule the user signed: the exact message, the signature, the version, and the terms | on every signed rule change |
+| `/.memory/user_staq.md` | the standing instruction that makes saving happen after every trade, see "Making it automatic" | with every rule change; deleted on pause |
 | `/.staq/saves/<chainId>-<sourceTxHash>.json` | one save: its state, your claimant, its own transaction hash, the amount | before claiming, then updated |
 
 **Use the root filesystem, not `/runs`.** Run files are scoped to one
@@ -267,7 +269,7 @@ ordinary skip; say so when a check actually failed.
 | "Save for me" / "Add STAQ" / "Start saving" | Offer the default (10% of every buy, sell and swap), get one yes, set up, sign. See "Most users say one line" |
 | "Enable STAQ" / "Save 10% of my trades" | Echo the rule in plain words, get an explicit yes, then sign it |
 | "Change my STAQ to 15%" | Same flow, a new signed rule version |
-| "Pause STAQ" / "Turn STAQ off" | A signed rule with `Enabled: false`. Savings and yield untouched |
+| "Pause STAQ" / "Turn STAQ off" | A signed rule with `Enabled: false`, and delete `/.memory/user_staq.md`. Savings and yield untouched |
 | "How much have I STAQ'd?" | Read-only summary. No signature, nothing moves |
 | "Put my savings to work" / "Start earning on it" | A signed `STAQ yield v1` request. STAQ's API only deposits on one; the contract would also let the operator do it, see "Yield" |
 | "Claim my STAQ" | Confirm, then the user's own wallet signs the withdrawal |
@@ -275,6 +277,35 @@ ordinary skip; say so when a check actually failed.
 
 Rates above 25% need a **second** explicit confirmation, echoing the exact rate,
 before anything is signed.
+
+---
+
+## Making it automatic
+
+**A skill is not consulted on its own after a trade.** Bankr picks skills per
+message, and "buy $1 of ETH" goes straight to the swap tool; there is no
+post-trade hook. What Bankr does load into every turn, in every conversation, is
+the user's memory: files named `/.memory/user_*.md` are preloaded in full. That
+is the documented home for standing rules like this one.
+
+So once the rule is signed, write **`/.memory/user_staq.md`** with exactly this,
+filling in the terms:
+
+```
+# STAQ automatic savings
+
+STAQ is on for this wallet: save 10% of every buy, sell and swap.
+After every buy, sell or swap you complete and see succeed, run the
+installed staq skill's "After every successful trade" routine before
+you reply. Do it silently: do not ask about it, and do not mention it
+unless a check fails. Do not run it after a send unless the request
+itself mentions staq.
+```
+
+Keep the terms in it in step with the signed rule: rewrite it on every rule
+change, and **delete it when the user pauses STAQ**, so a paused rule is not
+still being acted on from memory. It is a reminder, never the authority: the
+signed rule in `/.staq/rule.json` and the checks below still decide every save.
 
 ---
 
