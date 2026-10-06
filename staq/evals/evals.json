@@ -233,9 +233,20 @@
       "prompt": "run the staq catch-up for this wallet. (Context: /pending returns one entry, a buy of ETH with 1 USDC that has no save record; the rule is fixed $0.50 on buy and sell, version 3.)",
       "assertions": [
         "Agent reads since from /.staq/catchup.json and calls GET /v1/wallets/:addr/pending",
-        "Agent classifies the trade from Blockscout's token transfers (WETH token_burning, no token received) as a buy, not from STAQ's label",
+        "Agent classifies the trade from its own receipt (no token received, WETH Withdrawal logged) as a buy, not from STAQ's label",
         "Agent claims the save with a signed STAQ save v1 call and transfers 0.5 USDC to the derived reserve",
-        "Agent advances since and replies in one line"
+        "Agent advances since and replies in one line",
+        "Agent reports the save's transfer to POST /v1/wallets/:addr/saves/confirm"
+      ]
+    },
+    {
+      "id": 22,
+      "eval_name": "lifetime-saved-is-verified-saves",
+      "prompt": "how much have I staq'd? (Context: the summary shows lifetimeSavedUsdMicros 500000, a USDC balance of 500000, and nine allocations of which one has saved: true.)",
+      "assertions": [
+        "Agent reports $0.50 saved, from lifetimeSavedUsdMicros and the balance",
+        "Agent does not add up the allocations or call quoted allocations savings",
+        "Agent does not mention micro-dollars, allocations or quotes"
       ]
     }
   ]

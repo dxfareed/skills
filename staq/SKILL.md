@@ -357,15 +357,15 @@ and never one that already has a save claim. Running a trade through the save
 call again is harmless: its claim lets exactly one run transfer, which is also
 why step 4 can overlap the last window by ten minutes without paying twice.
 
-**You did not execute these trades in this run**, so classify each one from
-Blockscout's record of it, not from STAQ's label:
-`GET https://base.blockscout.com/api/v2/transactions/<sourceTxHash>/token-transfers`.
-If the wallet received the pinned USDC or USDT, it is a `sell`. If it received
-any other token, it is a `buy`. If it received no token, it is a `buy` only when
-the list has a WETH entry of type `token_burning`, which is the router
-unwrapping the ETH it paid the wallet; otherwise save nothing. For a
-percent rule, the USDC leg in that same list is your valuation; with no USDC
-leg, save nothing, quietly.
+**You did not execute these trades in this run**, so classify each one from its
+own receipt, not from STAQ's label: `eth_getTransactionReceipt` on a Base RPC.
+In its logs, a `Transfer` (topic `0xddf252ad…`) whose third topic is the wallet
+is a token the wallet received. If that token is the pinned USDC or USDT, it is a
+`sell`. Any other token received, it is a `buy`. If the wallet received no token,
+it is a `buy` only when WETH (`0x4200…0006`) logged a `Withdrawal` (topic
+`0x7fcf532c…`), which is the router unwrapping the ETH it paid the wallet;
+otherwise save nothing. For a percent rule, the USDC `Transfer` from the wallet
+in that receipt is your valuation; with none, save nothing, quietly.
 
 ---
 
@@ -385,7 +385,10 @@ messages. Everything else was settled at setup and lives in `/.staq/`.
      "allocate", claimed   -> run every check below, with no network calls
      anything else         -> save nothing
 5. Mark the record "attempted", transfer: amount converted, see "The transfer"
-6. Record the result. Say nothing
+6. Once the transfer confirms, record its hash and report it:
+   POST /v1/wallets/:addr/saves/confirm
+   {"sourceTxHash":"0x<trade>","saveTxHash":"0x<the transfer>"}
+   Say nothing
 ```
 
 Not on a send, unless the user asked for it in that same request: see "Sends".
@@ -920,6 +923,8 @@ and only one of them is honest here.
 | `GET` | `/v1/wallets/:addr` | The current rule, the reserve address, and whether the reserve is deployed | none |
 | `PUT` | `/v1/wallets/:addr/rule` | Enable, change or pause saving | signed `STAQ rule update v1` |
 | `POST` | `/v1/wallets/:addr/saves` | The hot path: quotes one transaction and claims its save, so only one run transfers it | signed `STAQ save v1` |
+| `POST` | `/v1/wallets/:addr/saves/confirm` | Reports a save's own transfer, which STAQ verifies on chain before it counts as saved | none: the receipt proves it |
+| `GET` | `/v1/wallets/:addr/pending` | Recent trades that should have saved and have not, for the catch-up | none |
 | `POST` | `/v1/quotes` | The same quote with no claim, for looking only. Never transfer on it | none, rate-limited |
 | `GET` | `/v1/wallets/:addr/summary` | Balances, vault position, history | none |
 | `POST` | `/v1/wallets/:addr/activate` | Returns the steps that deploy a reserve. Once per user, ever | none |

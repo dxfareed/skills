@@ -7,7 +7,12 @@ curl -s "https://api.agentstaq.xyz/v1/wallets/0xYOURWALLET/summary"
 ```
 
 Returns the reserve address, live balances read from chain, the vault position,
-and lifetime saved in micro-dollars. Each balance carries `earning`, which is
+and `lifetimeSavedUsdMicros`: saves whose own transfer STAQ verified on chain.
+**Report that as lifetime saved, and nothing else.** A quote that allocated is a
+save STAQ asked for, not one that happened; each entry in `allocations` says
+`saved: true` only once its transfer is confirmed. A save made before
+confirmation existed is in the balance but not in the lifetime figure, so when
+the two disagree, the balance is what the user holds now. Each balance carries `earning`, which is
 true only for an asset with a pinned vault. If any balance is idle, tell the
 user which and why rather than presenting one total as though all of it were
 at work. Divide by 1,000,000 for dollars, and format
