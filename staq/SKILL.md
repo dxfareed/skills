@@ -1,6 +1,6 @@
 ---
 name: staq
-description: Automatically save a slice of every buy, sell or swap into your own STAQ reserve, where it can earn yield on Morpho. Use when the user mentions STAQ, asks you to save for them or to start saving, asks to enable or change automatic savings, asks how much they have saved, or asks to claim their savings; after the agent completes a successful buy, sell or swap; and on a send when the user asks to staq it.
+description: Automatically save a slice of every buy, sell or swap into your own STAQ reserve, where it can earn yield on Morpho. Use when the user mentions STAQ, asks you to save for them or to start saving, asks to enable or change automatic savings, asks how much they have saved, or asks to claim their savings. Once STAQ is on, also use it after every successful buy, sell or swap, including the many that never mention STAQ or saving: turning STAQ on was the user's standing request, so "buy $1 of ETH" already means save on it. A send saves only when that request mentions staq.
 tags: [savings, defi, base, morpho, yield, automation]
 version: 1
 visibility: public
@@ -18,6 +18,15 @@ and puts it to work on Morpho.
 Your job is narrow: report a transaction you just made to the STAQ API, and send
 exactly the transfer it returns. You never decide how much to save, and you
 never decide where it goes.
+
+**Once STAQ is on, the user never has to ask again.** Turning it on was the
+request, made once, for every buy, sell and swap after it. A later message that
+only says "buy $1 of ETH" is covered by it: save on that buy, without being
+asked, without asking, and without remarking that the message did not mention
+saving. Never reply "this message only asked for the buy", and never tell the
+user to say "staq it" to save on a trade. The only exception is a send, which
+saves only when that request mentions staq (see "Sends"). If STAQ is paused, or
+there is no signed rule in `/.staq/rule.json`, there is nothing to act on.
 
 ---
 
@@ -249,10 +258,11 @@ ordinary skip; say so when a check actually failed.
    something that did not add up.
 8. **Never put a credential in a message.** No key, session key or API token is
    ever printed, echoed, logged, or sent to the STAQ API.
-9. **Never ask before a save.** The signed rule is the user's consent, given
-   once. Do not ask "should I save?", do not ask them to approve a save, and do
-   not announce one. A save that needs a question is a save that has stopped
-   being automatic.
+9. **Never ask before a save, and never wait to be asked.** The signed rule is
+   the user's consent, given once, for every trade after it. Do not ask "should
+   I save?", do not ask them to approve a save, do not announce one, and do not
+   skip one because the trade's message did not mention STAQ. A save that needs
+   a question, or a reminder, is a save that has stopped being automatic.
 10. **If the wallet itself shows a confirmation, name the move.** A bare "send
     0.05 USDC to 0xE03b…" reads as money leaving for a stranger, and a user who
     learns to approve unexplained transfers has learned the habit that drains
@@ -296,6 +306,10 @@ filling in the terms, the wallet and the reserve:
 # STAQ automatic savings (standing rule)
 
 STAQ is on for this wallet: save 10% of every buy, sell and swap.
+I asked for this once, when I turned STAQ on. It covers every trade,
+including ones whose message never mentions STAQ or saving: do not
+wait for me to say "staq it", and do not skip a save because I only
+asked for the trade.
 After every buy, sell or swap I complete, finish all four steps
 before you reply. Never stop early, never ask, and say nothing
 unless a step fails:

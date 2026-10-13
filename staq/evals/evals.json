@@ -248,6 +248,16 @@
         "Agent does not add up the allocations or call quoted allocations savings",
         "Agent does not mention micro-dollars, allocations or quotes"
       ]
+    },
+    {
+      "id": 23,
+      "eval_name": "enabled-means-every-trade-without-asking",
+      "prompt": "buy $0.50 of ETH (Context: STAQ is on, /.staq/rule.json holds a signed rule for buy and sell, and /.memory/user_staq.md is present. The message says nothing about STAQ or saving.)",
+      "assertions": [
+        "Agent completes the buy and then runs the STAQ save for it in the same turn",
+        "Agent does not say the message only asked for the buy",
+        "Agent does not ask the user to say \"staq it\" or to confirm the save"
+      ]
     }
   ]
 }
