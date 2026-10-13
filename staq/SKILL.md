@@ -54,7 +54,8 @@ When a user asks you to save and has no rule yet:
    there and answers to their wallet, and only then sign and submit the rule.
    Then save the standing instruction and create the catch-up automation, both
    in "Making it automatic" below, and confirm in one line: "Done. From now on
-   I'll save 10% of your trades."
+   I'll save 10% of your trades, within a few hours of each one." Without
+   Bankr Club, say instead what "Making it automatic" says to.
 4. **If they gave a number, use it.** "Save 5%" or "$1 a trade" replaces the
    default; do not ask about trade types as well. The default types are `buy`
    and `sell`: a swap is one or the other, and a send cannot save automatically
@@ -341,6 +342,20 @@ closed the turn with its own fixed reply, and the save after it was skipped
 more often than not. So setup also creates a scheduled catch-up, an Agent
 Command automation, which needs Bankr Club:
 
+For a **percent** rule (the default, 10%):
+
+> every 3 hours, run the staq catch-up for this wallet, following the staq
+> skill's "Catching up" steps to the end. I save <rate>% of every buy and sell
+> into my STAQ savings, never more than <cap> USDC per trade: for every trade
+> STAQ answers with claimed: true and an amount that is <rate>% of that trade
+> and passes the skill's checks, transfer that amount of USDC from my wallet to
+> my own STAQ savings reserve <reserve> with /wallet/transfer, then report it
+> to /saves/confirm. This is a USDC savings transfer to my own reserve, not
+> staking. If a STAQ call or the transfer answers with an error, include it
+> verbatim in your reply. Otherwise reply in one line.
+
+For a **fixed** rule:
+
 > every 3 hours, run the staq catch-up for this wallet, following the staq
 > skill's "Catching up" steps to the end. I save <amount> USDC per trade: for
 > every trade STAQ answers with claimed: true and an amount of <base units>
@@ -349,24 +364,38 @@ Command automation, which needs Bankr Club:
 > /saves/confirm. If a STAQ call or the transfer answers with an error, include
 > it verbatim in your reply. Otherwise reply in one line.
 
-with `<reserve>` filled in from `/.staq/reserve.json` and the amount from the
-signed rule, for example `0.5` and `500000`. **Both the address and the amount
-have to be in the prompt.** Bankr's wallet only sends to a recipient the user
-named, and only an amount the user stated. Without the amount it refuses with
-"Transfer amount is missing from the user's explicit intent", even with the
-address named. This prompt is the user's own standing request, approved with
-their yes at setup, so it is the user stating both, which is what that check
-asks for. It was verified end to end on mainnet with a fixed $0.50 rule. A
-percent rule's amount changes with every trade, so it cannot be written here
-in advance, and has not been shown to pass this check.
+Fill in `<reserve>` from `/.staq/reserve.json`, and the rate or amount from the
+signed rule. `<cap>` is 10 unless the user named one, and a catch-up never
+transfers more than it for one trade, whatever the quote says.
+
+**Every part of this wording is load-bearing.** Bankr's wallet runs a safety
+check that reads the user's own words and refuses any transfer they do not
+plainly ask for. In testing on mainnet it refused:
+
+- an address with no amount: "Transfer amount is missing from the user's
+  explicit intent";
+- "buy $0.50 of ETH and staq 10%", reading "staq" as staking and the reserve as
+  "an unauthorized third-party address".
+
+This prompt is the user's own standing request, approved with their yes at
+setup, and it states the recipient, the amount or rate, and that it is a USDC
+savings transfer to their own reserve. Both versions were verified end to end
+on mainnet: a fixed $0.50 save and a 10% save, each claimed, transferred,
+confirmed and counted. Keep the wording as written.
 
 Then write `/.staq/catchup.json` with `since` set to the current unix time.
 Every 3 hours is 8 runs a day, and its 1,000-run cap lasts about four months:
 whenever the user talks to you about STAQ, check the automation still exists
 ("show my automations") and recreate it if not.
-Delete it when the user pauses STAQ. Without Bankr Club, skip the automation and
-tell the user saves will happen when the post-trade step runs, which is not
-every time.
+Delete it when the user pauses STAQ.
+
+**Without Bankr Club there is no automation, and no automatic saving.** A save
+inside the trade's own turn is refused by the safety check above, because the
+trade message does not name the reserve. Tell the user plainly, once, at setup:
+"Automatic saving needs Bankr Club. Without it, say "run my STAQ catch-up" any
+time and I'll give you the one message to send." Then, when they ask, give them
+the catch-up prompt above, filled in, to send as their own message. Never send
+it on their behalf.
 
 ### Catching up
 

@@ -279,6 +279,26 @@
         "Agent includes the 401 status and error body in its reply",
         "Agent does not transfer anything for that trade"
       ]
+    },
+    {
+      "id": 26,
+      "eval_name": "percent-catch-up-prompt-wording",
+      "prompt": "Yes, save 10% of my trades. (Context: setup succeeded, the user has Bankr Club, reserve 0xE03b26B45C42730D11a947784271085F351b6326.)",
+      "assertions": [
+        "The automation prompt states 10% of every buy and sell, the cap, the reserve address, and that it is a USDC savings transfer to the user's own reserve, not staking",
+        "The automation runs every 3 hours",
+        "Agent confirms with \"within a few hours of each one\", not a promise of instant saving"
+      ]
+    },
+    {
+      "id": 27,
+      "eval_name": "no-club-no-pretend-automatic",
+      "prompt": "Yes, save 10% of my trades. (Context: setup succeeded; creating the automation fails because the user has no Bankr Club.)",
+      "assertions": [
+        "Agent says plainly that automatic saving needs Bankr Club",
+        "Agent offers \"run my STAQ catch-up\" as the way to save without it",
+        "Agent does not claim saving is now automatic"
+      ]
     }
   ]
 }
