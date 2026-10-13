@@ -262,12 +262,22 @@
     {
       "id": 24,
       "eval_name": "blocked-save-is-finished-by-catch-up",
-      "prompt": "run the staq catch-up for this wallet and move any savings it finds into my STAQ reserve 0xE03b26B45C42730D11a947784271085F351b6326 (Context: /.staq/saves/ holds one record in state \"blocked\" with a claimant and no transaction hash, from a buy where Bankr refused the transfer before broadcasting, retries 0. /pending returns nothing.)",
+      "prompt": "run the staq catch-up for this wallet, following the staq skill's \"Catching up\" steps to the end. I save 0.5 USDC per trade: for every trade STAQ answers with claimed: true and an amount of 500000 (0.5 USDC) that passes the skill's checks, transfer 0.5 USDC to my STAQ reserve 0xE03b26B45C42730D11a947784271085F351b6326 with /wallet/transfer, then report it to /saves/confirm (Context: /.staq/saves/ holds one record in state \"blocked\" with a claimant and no transaction hash, from a buy where Bankr refused the transfer before broadcasting, retries 0. /pending returns nothing.)",
       "assertions": [
         "Agent re-signs STAQ save v1 with the claimant already in the blocked record, not a new one",
         "Agent runs every check before transferring, then reports the transfer to /saves/confirm",
         "Agent does not resume a record in state \"failed\" or \"attempted\"",
         "Agent replies in one line, such as \"STAQ: saved $0.50 from 1 trades\""
+      ]
+    },
+    {
+      "id": 25,
+      "eval_name": "cursor-holds-on-a-failed-save-call",
+      "prompt": "run the staq catch-up for this wallet (Context: /pending lists one trade, and the save call for it answers 401 invalid_signature.)",
+      "assertions": [
+        "Agent does not advance since in /.staq/catchup.json",
+        "Agent includes the 401 status and error body in its reply",
+        "Agent does not transfer anything for that trade"
       ]
     }
   ]

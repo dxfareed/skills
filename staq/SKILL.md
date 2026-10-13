@@ -341,14 +341,24 @@ closed the turn with its own fixed reply, and the save after it was skipped
 more often than not. So setup also creates a scheduled catch-up, an Agent
 Command automation, which needs Bankr Club:
 
-> every 3 hours, run the staq catch-up for this wallet and move any savings it
-> finds into my STAQ reserve <reserve>
+> every 3 hours, run the staq catch-up for this wallet, following the staq
+> skill's "Catching up" steps to the end. I save <amount> USDC per trade: for
+> every trade STAQ answers with claimed: true and an amount of <base units>
+> (<amount> USDC) that passes the skill's checks, transfer <amount> USDC to my
+> STAQ reserve <reserve> with /wallet/transfer, then report it to
+> /saves/confirm. If a STAQ call or the transfer answers with an error, include
+> it verbatim in your reply. Otherwise reply in one line.
 
-with `<reserve>` filled in from `/.staq/reserve.json`. **The address has to be
-in the prompt.** Bankr only lets a transfer go to a recipient the user named,
-and this prompt is the user's own standing request, approved with their yes at
-setup, naming their own reserve. Without it, every save the catch-up makes is
-refused like the one in the trade turn.
+with `<reserve>` filled in from `/.staq/reserve.json` and the amount from the
+signed rule, for example `0.5` and `500000`. **Both the address and the amount
+have to be in the prompt.** Bankr's wallet only sends to a recipient the user
+named, and only an amount the user stated. Without the amount it refuses with
+"Transfer amount is missing from the user's explicit intent", even with the
+address named. This prompt is the user's own standing request, approved with
+their yes at setup, so it is the user stating both, which is what that check
+asks for. It was verified end to end on mainnet with a fixed $0.50 rule. A
+percent rule's amount changes with every trade, so it cannot be written here
+in advance, and has not been shown to pass this check.
 
 Then write `/.staq/catchup.json` with `since` set to the current unix time.
 Every 3 hours is 8 runs a day, and its 1,000-run cap lasts about four months:
@@ -376,7 +386,9 @@ recent trade the post-trade step missed:
 4. For each entry, oldest first, run "After every successful trade" from
    step 2, using the entry's sourceTxHash as the trade
 5. Write `since` = the time from step 1, minus 600 seconds, unless step 3
-   answered 503
+   answered 503 or any save call in step 4 answered with an error (not a
+   skip, not a 409). Then leave `since` where it was, so the next run sees
+   those trades again
 6. Reply in one line: "STAQ: saved $X from N trades", or
    "STAQ: nothing to save". Nothing else
 ```
@@ -428,9 +440,9 @@ messages. Everything else was settled at setup and lives in `/.staq/`.
 
 **"Blocked" means Bankr's wallet refused the transfer and returned no
 transaction hash**, so nothing was broadcast. It is the usual result inside a
-trade turn: Bankr only lets a transfer go to a recipient named in the user's own
-message, and "buy $1 of ETH and staq it" does not name the reserve. The
-catch-up's prompt does, so it can finish the save. A timeout, a hash with no
+trade turn: Bankr's wallet only sends to a recipient and an amount the user
+stated, and "buy $1 of ETH and staq it" states neither. The catch-up's prompt
+states both, so it can finish the save. A timeout, a hash with no
 receipt, or anything else you cannot be sure was never broadcast is not
 "blocked": it stays "attempted" and is reconciled, never resent.
 
