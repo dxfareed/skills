@@ -341,30 +341,49 @@ closed the turn with its own fixed reply, and the save after it was skipped
 more often than not. So setup also creates a scheduled catch-up, an Agent
 Command automation, which needs Bankr Club:
 
-> every 30 minutes, run the staq catch-up for this wallet
+> every 3 hours, run the staq catch-up for this wallet and move any savings it
+> finds into my STAQ reserve <reserve>
+
+with `<reserve>` filled in from `/.staq/reserve.json`. **The address has to be
+in the prompt.** Bankr only lets a transfer go to a recipient the user named,
+and this prompt is the user's own standing request, approved with their yes at
+setup, naming their own reserve. Without it, every save the catch-up makes is
+refused like the one in the trade turn.
 
 Then write `/.staq/catchup.json` with `since` set to the current unix time.
-Every 30 minutes stays inside Bankr's limit of 100 runs a day, and its 1,000-run
-cap lasts about three weeks: whenever the user talks to you about STAQ, check
-the automation still exists ("show my automations") and recreate it if not.
+Every 3 hours is 8 runs a day, and its 1,000-run cap lasts about four months:
+whenever the user talks to you about STAQ, check the automation still exists
+("show my automations") and recreate it if not.
 Delete it when the user pauses STAQ. Without Bankr Club, skip the automation and
 tell the user saves will happen when the post-trade step runs, which is not
 every time.
 
 ### Catching up
 
-When the catch-up runs, it saves every recent trade the post-trade step missed:
+When the catch-up runs, it finishes saves that were blocked, then saves every
+recent trade the post-trade step missed:
 
 ```
 1. Read `since` from /.staq/catchup.json. Note the time now.
-2. GET https://api.agentstaq.xyz/v1/wallets/<wallet>/pending?since=<since>
-     503 -> stop; the next run picks these up
-3. For each entry, oldest first, run "After every successful trade" from
+2. For each record in /.staq/saves/ in state "blocked", oldest first:
+     sign "STAQ save v1" again with the claimant already in the record,
+     POST /v1/wallets/<wallet>/saves. The claim is yours, so it answers
+     claimed: true again. Run every check, then steps 5 and 6 of
+     "After every successful trade". Count "retries" in the record; at 3,
+     mark it "failed" and leave it
+3. GET https://api.agentstaq.xyz/v1/wallets/<wallet>/pending?since=<since>
+     503 -> skip to step 5; the next run picks these up
+4. For each entry, oldest first, run "After every successful trade" from
    step 2, using the entry's sourceTxHash as the trade
-4. Write `since` = the time from step 1, minus 600 seconds
-5. Reply in one line: "STAQ: saved $X from N trades", or
+5. Write `since` = the time from step 1, minus 600 seconds, unless step 3
+   answered 503
+6. Reply in one line: "STAQ: saved $X from N trades", or
    "STAQ: nothing to save". Nothing else
 ```
+
+Re-sending a blocked save cannot pay twice: the record holds no transaction
+hash because nothing was broadcast, and the claim stays with this one claimant,
+so a second wallet or run asking for it gets `409 save_claimed`.
 
 The list only holds trades since the rule in force was signed, never sends,
 and never one that already has a save claim. Running a trade through the save
@@ -399,11 +418,21 @@ messages. Everything else was settled at setup and lives in `/.staq/`.
      "allocate", claimed   -> run every check below, with no network calls
      anything else         -> save nothing
 5. Mark the record "attempted", transfer: amount converted, see "The transfer"
+     refused before broadcast -> mark the record "blocked", say nothing. The
+                                 catch-up finishes it, see "Catching up"
 6. Once the transfer confirms, record its hash and report it:
    POST /v1/wallets/:addr/saves/confirm
    {"sourceTxHash":"0x<trade>","saveTxHash":"0x<the transfer>"}
    Say nothing
 ```
+
+**"Blocked" means Bankr's wallet refused the transfer and returned no
+transaction hash**, so nothing was broadcast. It is the usual result inside a
+trade turn: Bankr only lets a transfer go to a recipient named in the user's own
+message, and "buy $1 of ETH and staq it" does not name the reserve. The
+catch-up's prompt does, so it can finish the save. A timeout, a hash with no
+receipt, or anything else you cannot be sure was never broadcast is not
+"blocked": it stays "attempted" and is reconciled, never resent.
 
 Not on a send, unless the user asked for it in that same request: see "Sends".
 
@@ -876,7 +905,7 @@ pay out.
 
 | Case | What it looks like | What you do |
 |---|---|---|
-| A duplicate | Any record already exists for this source transaction, `failed` included | Refuse. One transaction, one save, ever |
+| A duplicate | Any record already exists for this source transaction, `failed` included | Refuse. One transaction, one save, ever. The one exception is a `blocked` record, which only the catch-up resumes, with the claimant already in it |
 | A race | Two runs both find no record for the same trade | Only the one whose save claim returns `200` transfers. The other gets `409 save_claimed` and stops |
 | No claim | The claim endpoint is unreachable or answers anything but `200` | Save nothing |
 | Base units sent as tokens | A quote `amount` of `"10000"` placed straight into `/wallet/transfer` | Never. Convert to `"0.01"` and check the round trip first |

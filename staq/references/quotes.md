@@ -136,10 +136,14 @@ So there are two records, and both exist before the transfer does:
    save_claimed` and stops. Only the holder goes on. If the endpoint cannot be
    reached, save nothing.
 3. Mark your record `attempted`, broadcast, then update it to `pending` with the
-   save's own transaction hash, and to `confirmed` or `failed` when you know.
+   save's own transaction hash, and to `confirmed` or `failed` when you know. If
+   the wallet refuses the transfer and returns no hash, nothing was broadcast:
+   mark it `blocked` instead.
 4. **Any existing record refuses a new attempt**, `failed` included. A save is
    never retried and never collected later, so a record existing at all is the
-   answer.
+   answer. The one exception is `blocked`: the catch-up resumes it, with the
+   claimant already in the record, at most three times (see "Catching up" in
+   `SKILL.md`).
 5. **On an ambiguous result**, a timeout or a lost receipt, reconcile the record
    you already have. Look up the hash you stored, or look for the transfer on
    chain. Never resolve uncertainty by sending a second one.

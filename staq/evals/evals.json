@@ -258,6 +258,17 @@
         "Agent does not say the message only asked for the buy",
         "Agent does not ask the user to say \"staq it\" or to confirm the save"
       ]
+    },
+    {
+      "id": 24,
+      "eval_name": "blocked-save-is-finished-by-catch-up",
+      "prompt": "run the staq catch-up for this wallet and move any savings it finds into my STAQ reserve 0xE03b26B45C42730D11a947784271085F351b6326 (Context: /.staq/saves/ holds one record in state \"blocked\" with a claimant and no transaction hash, from a buy where Bankr refused the transfer before broadcasting, retries 0. /pending returns nothing.)",
+      "assertions": [
+        "Agent re-signs STAQ save v1 with the claimant already in the blocked record, not a new one",
+        "Agent runs every check before transferring, then reports the transfer to /saves/confirm",
+        "Agent does not resume a record in state \"failed\" or \"attempted\"",
+        "Agent replies in one line, such as \"STAQ: saved $0.50 from 1 trades\""
+      ]
     }
   ]
 }
