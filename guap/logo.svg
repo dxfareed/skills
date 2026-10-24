@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="64" height="64" role="img" aria-label="guap">
+  <rect width="32" height="32" rx="7" fill="#2a2733"/>
+  <circle cx="16" cy="18.2" r="9.0" fill="none" stroke="#f7f5ff" stroke-width="4.6"
+          stroke-linecap="round" stroke-dasharray="40.5 16.1"
+          transform="rotate(-30 16 18.2)"/>
+  <rect x="14.9" y="3.6" width="2.2" height="5.4" rx="1.1" fill="#f7f5ff"/>
+  <circle cx="16" cy="3.6" r="2.9" fill="#6d3ff2"/>
+  <rect x="15.0" y="20.6" width="8.6" height="3.6" rx="1.8" fill="#6d3ff2"/>
+</svg>

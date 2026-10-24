@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "slug": "guap",
+  "provider": "guap",
+  "providerUrl": "https://getguap.xyz/skill",
+  "logo": "logo.svg",
+  "demo": {
+    "title": "guap.txt",
+    "language": "text",
+    "code": "You: connect guap K7QM-4XTD\nAgent: (signs with your wallet) Open guap and tap Confirm. Check it shows 0xee47...D6B2.\nYou: cash out $20 to my bank\nAgent: ₦27,300 to GTBank ••••4821. You send 20.04 USDC on Base. Go ahead?\nYou: yes\nAgent: To send it, reply with: send 20.039136 USDC on base to 0x18A1...56BD\nYou: send 20.039136 USDC on base to 0x18A1...56BD\nAgent: Sent. The naira has been paid into GTBank ••••4821."
+  },
+  "setup": [
+    "Install the guap skill (command below)",
+    "In guap (getguap.xyz), open Settings, Bankr, Connect Bankr, and say the code to your agent",
+    "Confirm on guap, then save the bank account you want naira in",
+    "Say: cash out $20 to my bank, and send the one line your agent gives you"
+  ],
+  "install": {
+    "type": "bankr",
+    "repoPath": "guap",
+    "command": "install the guap skill from https://github.com/BankrBot/skills/tree/main/guap"
+  }
+}
